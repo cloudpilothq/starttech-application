@@ -1,0 +1,117 @@
+name: Backend CI/CD
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'Server/**'
+  pull_request:
+    paths:
+      - 'Server/**'
+
+env:
+  AWS_REGION: "us-east-1"
+  ECR_REPOSITORY: "starttech-backend"
+  ASG_NAME: "starttech-asg-prod"
+
+jobs:
+  test_and_build:
+    name: Test and Build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+          cache-dependency-path: ./Server/go.sum
+
+      - name: Test and Lint
+        working-directory: ./Server
+        run: |
+          go mod download
+          go test -v ./...
+          # Add actual gosec or golangci-lint check here
+          # golangci-lint run
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build, tag, and push image to Amazon ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        working-directory: ./Server
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          
+          # Install Trivy and scan image
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+          trivy image --exit-code 0 --severity HIGH,CRITICAL $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+  deploy:
+    name: Deploy to EC2 ASG
+    needs: test_and_build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Trigger Instance Refresh (Rolling Update)
+        run: |
+          # Initiate an instance refresh on the Auto Scaling Group
+          aws autoscaling start-instance-refresh \
+            --auto-scaling-group-name ${{ env.ASG_NAME }} \
+            --preferences '{"MinHealthyPercentage": 50, "InstanceWarmup": 300}'
+
+      - name: Wait for Instance Refresh
+        run: |
+          # Wait until instance refresh is successful
+          while true; do
+            STATUS=$(aws autoscaling describe-instance-refreshes \
+              --auto-scaling-group-name ${{ env.ASG_NAME }} \
+              --query 'InstanceRefreshes[0].Status' --output text)
+            
+            if [ "$STATUS" == "Successful" ]; then
+              echo "Instance refresh successful."
+              break
+            elif [ "$STATUS" == "Failed" ] || [ "$STATUS" == "Cancelled" ]; then
+              echo "Instance refresh failed or was cancelled."
+              exit 1
+            else
+              echo "Refresh status: $STATUS. Waiting..."
+              sleep 30
+            fi
+          done
+
+      - name: Smoke Tests
+        run: |
+          ALB_URL=${{ secrets.ALB_DNS_NAME }}
+          HTTP_STATUS=$(curl -o /dev/null -s -w "%{http_code}\n" http://$ALB_URL/health)
+          if [ "$HTTP_STATUS" -ne 200 ]; then
+            echo "Smoke test failed! Expected 200, got $HTTP_STATUS"
+            exit 1
+          fi
+          echo "Smoke test passed."
