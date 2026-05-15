@@ -11,9 +11,9 @@ on:
       - 'Server/**'
 
 env:
-  AWS_REGION: "us-east-1"
+  AWS_REGION: "eu-west-2"
   ECR_REPOSITORY: "starttech-backend"
-  ASG_NAME: "starttech-asg-prod"
+  ASG_NAME: "starttech-asg-dev"
 
 jobs:
   test_and_build:
