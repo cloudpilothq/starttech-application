@@ -6,9 +6,11 @@ on:
       - main
     paths:
       - 'Server/**'
+      - '.github/workflows/backend-ci-cd.yml'
   pull_request:
     paths:
       - 'Server/**'
+      - '.github/workflows/backend-ci-cd.yml'
 
 env:
   AWS_REGION: "eu-west-2"
