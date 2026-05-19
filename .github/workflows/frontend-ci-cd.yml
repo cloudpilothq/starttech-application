@@ -47,7 +47,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: build-artifact
-          path: ./Client/build
+          path: ./Client/dist
 
   deploy:
     name: Deploy to S3
