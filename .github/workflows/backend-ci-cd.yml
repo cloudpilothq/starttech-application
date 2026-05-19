@@ -58,6 +58,7 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         working-directory: ./Server/MuchToDo
         run: |
+          aws ecr describe-repositories --repository-names $ECR_REPOSITORY || aws ecr create-repository --repository-name $ECR_REPOSITORY
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           
           # Install Trivy and scan image
