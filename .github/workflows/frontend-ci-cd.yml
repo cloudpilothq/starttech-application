@@ -6,9 +6,11 @@ on:
       - main
     paths:
       - 'Client/**'
+      - '.github/workflows/frontend-ci-cd.yml'
   pull_request:
     paths:
       - 'Client/**'
+      - '.github/workflows/frontend-ci-cd.yml'
 
 jobs:
   build_and_test:

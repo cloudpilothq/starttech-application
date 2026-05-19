@@ -28,10 +28,10 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: '1.21'
-          cache-dependency-path: ./Server/go.sum
+          cache-dependency-path: ./Server/MuchToDo/go.sum
 
       - name: Test and Lint
-        working-directory: ./Server
+        working-directory: ./Server/MuchToDo
         run: |
           go mod download
           go test -v ./...
@@ -54,7 +54,7 @@ jobs:
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
-        working-directory: ./Server
+        working-directory: ./Server/MuchToDo
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           
