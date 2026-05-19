@@ -44,7 +44,7 @@ jobs:
           REACT_APP_API_URL: "http://starttech-alb-dev-1442893993.eu-west-2.elb.amazonaws.com"
 
       - name: Upload Build Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: build-artifact
           path: ./Client/build
@@ -66,7 +66,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Download Build Artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: build-artifact
           path: ./build
