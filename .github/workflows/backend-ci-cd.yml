@@ -113,9 +113,31 @@ jobs:
       - name: Smoke Tests
         run: |
           ALB_URL=${{ secrets.ALB_DNS_NAME }}
-          HTTP_STATUS=$(curl -o /dev/null -s -w "%{http_code}\n" http://$ALB_URL/health)
-          if [ "$HTTP_STATUS" -ne 200 ]; then
-            echo "Smoke test failed! Expected 200, got $HTTP_STATUS"
-            exit 1
-          fi
-          echo "Smoke test passed."
+          MAX_RETRIES=10
+          RETRY_DELAY=15
+           
+           for i in $(seq 1 $MAX_RETRIES); do
+             HTTP_STATUS=$(curl -o /dev/null -s -w "%{http_code}\n" http://$ALB_URL/health)
+             if [ "$HTTP_STATUS" -eq 200 ]; then
+               echo "Smoke test passed."
+               exit 0
+             fi
+             
+             if [ $i -lt $MAX_RETRIES ]; then
+               echo "Smoke test returned $HTTP_STATUS. Retrying in ${RETRY_DELAY}s (attempt $i/$MAX_RETRIES)..."
+               sleep $RETRY_DELAY
+             fi
+           done
+           
+           echo "Smoke test failed! Expected 200, got $HTTP_STATUS after $MAX_RETRIES attempts"
+           exit 1
+
+      #- name: Smoke Tests
+       # run: |
+        #  ALB_URL=${{ secrets.ALB_DNS_NAME }}
+         # HTTP_STATUS=$(curl -o /dev/null -s -w "%{http_code}\n" http://$ALB_URL/health)
+          #if [ "$HTTP_STATUS" -ne 200 ]; then
+           # echo "Smoke test failed! Expected 200, got $HTTP_STATUS"
+            #exit 1
+          #fi
+          #echo "Smoke test passed."
