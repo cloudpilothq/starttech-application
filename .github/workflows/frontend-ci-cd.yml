@@ -41,7 +41,7 @@ jobs:
         run: npm run build
         env:
           CI: false
-          REACT_APP_API_URL: "http://starttech-alb-dev-1442893993.eu-west-2.elb.amazonaws.com"
+          REACT_APP_API_URL: "http://${{ secrets.ALB_DNS_NAME }}"
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
